@@ -1,0 +1,32 @@
+pluginManagement {
+    repositories {
+        //mavenLocal()
+        //maven { url = '...' }
+        gradlePluginPortal()
+    }
+    plugins {
+        id 'org.jetbrains.kotlin.jvm' version '2.2.0'
+    }
+}
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
+}
+
+buildCache {
+    local {
+        directory = new File(rootDir, 'build-cache')
+    }
+}
+
+rootProject.name = 'PruebaTecnicaJava'
+
+include ':app-service'
+include ':model'
+include ':usecase'
+project(':app-service').projectDir = file('./applications/app-service')
+project(':model').projectDir = file('./domain/model')
+project(':usecase').projectDir = file('./domain/usecase')
+include ':reactive-web'
+project(':reactive-web').projectDir = file('./infrastructure/entry-points/reactive-web')
+include ':r2dbc-postgresql'
+project(':r2dbc-postgresql').projectDir = file('./infrastructure/driven-adapters/r2dbc-postgresql')
