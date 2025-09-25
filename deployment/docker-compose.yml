@@ -1,0 +1,11 @@
+services:
+  prueba:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    container_name: prueba
+    environment:
+      SPRING_PROFILES_ACTIVE: default
+    ports:
+      - "8080:8080"
+    restart: always

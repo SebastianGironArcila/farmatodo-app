@@ -1,0 +1,81 @@
+steps:
+  # --- 1. Dar permisos de ejecución al wrapper de Gradle ---
+  - name: 'gcr.io/cloud-builders/git'
+    id: 'Grant execute permission'
+    entrypoint: 'chmod'
+    args: ['+x', './gradlew']
+
+
+
+
+  # --- 2. Ejecutar Pruebas Unitarias usando la imagen de Cloud SDK ---
+  # Esta imagen está garantizada que existe y contiene un JDK.
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Run tests'
+    entrypoint: './gradlew'
+    args: ['test']
+    waitFor: ['Grant execute permission']
+
+
+
+
+  # --- 3. Empaquetar la aplicación usando la imagen de Cloud SDK ---
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Package application'
+    entrypoint: './gradlew'
+    args: ['bootJar', '-x', 'test']
+    waitFor: ['Run tests']
+
+
+
+
+  # --- 4. Construir la imagen de Docker ---
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build image'
+    args:
+      [
+        'build',
+        '-t',
+        'us-central1-docker.pkg.dev/${PROJECT_ID}/prueba-tecnica-repo/java-app:latest',
+        '-f',
+        'deployment/Dockerfile',
+        '.',
+      ]
+    waitFor: ['Package application']
+
+
+
+
+  # --- 5. Subir la imagen a Artifact Registry ---
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push image'
+    args: ['push', 'us-central1-docker.pkg.dev/${PROJECT_ID}/prueba-tecnica-repo/java-app:latest']
+    waitFor: ['Build image']
+
+
+
+
+  # --- 6. Desplegar la imagen en Cloud Run ---
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy to Cloud Run'
+    entrypoint: 'gcloud'
+    args:
+      [
+        'run',
+        'deploy',
+        'java-api-service',
+        '--image=us-central1-docker.pkg.dev/${PROJECT_ID}/prueba-tecnica-repo/java-app:latest',
+        '--region=us-central1',
+        '--platform=managed',
+        '--allow-unauthenticated',
+        '--port=8080',
+      ]
+    waitFor: ['Push image']
+
+
+
+
+# Guardar la imagen construida en Artifact Registry
+images:
+  - 'us-central1-docker.pkg.dev/${PROJECT_ID}/prueba-tecnica-repo/java-app:latest'
+
