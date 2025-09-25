@@ -1,0 +1,105 @@
+{
+  "info": {
+    "name": "Farmatodo API",
+    "_postman_id": "11111111-2222-3333-4444-555555555555",
+    "description": "Colección para Farmatodo API con API Key por header X-API-KEY.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      { "key": "key", "value": "X-API-KEY", "type": "string" },
+      { "key": "value", "value": "{{apiKey}}", "type": "string" },
+      { "key": "in", "value": "header", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "apiKey", "value": "farmatodo-secret-key-2024" },
+    { "key": "clientId", "value": "1" },
+    { "key": "productName", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "GET Ping",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/ping",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "api", "v1", "ping" ]
+        }
+      }
+    },
+    {
+      "name": "POST Register Client",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/client",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "api", "v1", "client" ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"3001234567\",\n  \"address\": \"123 Main St\"\n}"
+        }
+      }
+    },
+    {
+      "name": "POST Tokenize Card",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/tokens",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "api", "v1", "tokens" ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cardNumber\": \"4111111111111111\",\n  \"cvv\": \"123\",\n  \"expirationDate\": \"12/28\",\n  \"email\": \"john.doe@example.com\"\n}"
+        }
+      }
+    },
+    {
+      "name": "GET Search Products",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/products?name={{productName}}",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "api", "v1", "products" ],
+          "query": [
+            { "key": "name", "value": "{{productName}}", "disabled": false }
+          ]
+        }
+      }
+    },
+    {
+      "name": "POST Add Product To Cart",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/cart/{{clientId}}/add",
+          "host": [ "{{baseUrl}}" ],
+          "path": [ "api", "v1", "cart", "{{clientId}}", "add" ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"productId\": \"prod-001\",\n  \"quantity\": 2\n}"
+        }
+      }
+    }
+  ]
+}
