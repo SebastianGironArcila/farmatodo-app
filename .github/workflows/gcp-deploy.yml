@@ -3,6 +3,9 @@ name: CI CD Cloud Run H2
 on:
   push:
     branches: [ "develop", "master" ]
+  pull_request:
+    branches: [ "master" ]
+
 
 env:
   PROJECT_ID: farmatodo-cicd-project
