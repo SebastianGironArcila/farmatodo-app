@@ -2,9 +2,10 @@ name: Build and Deploy to Cloud Run
 
 on:
   push:
+    # Asegúrate de que esta sea tu rama principal ('master' o 'main')
     branches: [ "master" ]
 
-# Variables de entorno para que no tengas que repetirlas
+# Variables de entorno para todo el workflow
 env:
   PROJECT_ID: farmatodo-cicd-project
   GAR_LOCATION: us-central1
@@ -24,14 +25,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Configurar Java (Gradle lo usará)
-      - name: Set up JDK 17 # O la versión que necesites, ej: '21'
+      # 2. Configurar Java 21
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
 
-      # 3. Dar permisos de ejecución a Gradle
+      # 3. Dar permisos de ejecución al wrapper de Gradle
+      # El wrapper ./gradlew se encargará de usar la versión correcta de Gradle (9.0.0) definida en tu proyecto
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
@@ -39,10 +41,10 @@ jobs:
       - name: Build and test with Gradle
         run: ./gradlew build
 
-      # 5. Autenticarse en Google Cloud (¡Tu configuración perfecta!)
+      # 5. Autenticarse en Google Cloud
       - name: Google Auth
         id: auth
-        uses: google-github-actions/auth@v2 # Usa la v2 que es más reciente
+        uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: 'projects/578301564702/locations/global/workloadIdentityPools/farmatodo-actions-pool/providers/github-provider'
           service_account: 'github-actions-builder@farmatodo-cicd-project.iam.gserviceaccount.com'
@@ -53,7 +55,7 @@ jobs:
 
       # 7. Configurar Docker para autenticarse con Artifact Registry
       - name: Configure Docker
-        run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev
+        run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev --quiet
 
       # 8. Construir la imagen de Docker
       - name: Build Docker image
@@ -73,5 +75,7 @@ jobs:
             --region ${{ env.GAR_LOCATION }} \
             --platform managed \
             --allow-unauthenticated \
-            --port 8080
+            --port 8080 \
+            --quiet
+
 
