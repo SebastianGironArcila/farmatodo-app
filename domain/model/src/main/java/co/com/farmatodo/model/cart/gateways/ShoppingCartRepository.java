@@ -14,7 +14,7 @@ public interface ShoppingCartRepository {
      * @param clientId El ID del cliente.
      * @return Un Mono que emite el ShoppingCart encontrado.
      */
-    Mono<ShoppingCart> findByClientId(String clientId);
+    Mono<ShoppingCart> findByClientId(Integer clientId);
 
 
     /**

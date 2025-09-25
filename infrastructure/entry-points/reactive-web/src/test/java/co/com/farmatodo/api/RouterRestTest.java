@@ -111,7 +111,7 @@ class RouterRestTest {
             .build();
 
     private final ShoppingCart shoppingCart = ShoppingCart.builder()
-            .clientId("client123")
+            .clientId(1)
             .build();
 
     @Test
@@ -193,16 +193,16 @@ class RouterRestTest {
     @Test
     void shouldAddProductToCartSuccessfully() {
         when(validationHandler.validate(any(AddProductDTO.class))).thenReturn(Mono.just(addProductDTO));
-        when(addProductToCartUseCase.addProduct(anyString(), anyString(), anyInt()))
+        when(addProductToCartUseCase.addProduct(anyInt(), anyString(), anyInt()))
                 .thenReturn(Mono.just(shoppingCart));
 
         webTestClient.post()
-                .uri("/api/v1/cart/client123/add")
+                .uri("/api/v1/cart/1/add")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(addProductDTO)
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(ShoppingCart.class)
-                .value(cart -> Assertions.assertThat(cart.getClientId()).isEqualTo("client123"));
+                .value(cart -> Assertions.assertThat(cart.getClientId()).isEqualTo(1));
     }
 }

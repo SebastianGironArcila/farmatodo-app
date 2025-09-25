@@ -12,6 +12,6 @@ import java.util.Map;
 @AllArgsConstructor
 @Builder(toBuilder = true)
 public class ShoppingCart {
-    private String clientId;
+    private Integer clientId;
     private Map<String, CartItem> items;
 }

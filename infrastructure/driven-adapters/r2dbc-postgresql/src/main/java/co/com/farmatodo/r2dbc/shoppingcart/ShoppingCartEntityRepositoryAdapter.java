@@ -1,32 +1,66 @@
 package co.com.farmatodo.r2dbc.shoppingcart;
 
+import co.com.farmatodo.model.cart.CartItem;
 import co.com.farmatodo.model.cart.ShoppingCart;
 import co.com.farmatodo.model.cart.gateways.ShoppingCartRepository;
 import co.com.farmatodo.r2dbc.helper.ReactiveAdapterOperations;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.reactivecommons.utils.ObjectMapper;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Mono;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Repository
 @Slf4j
 public class ShoppingCartEntityRepositoryAdapter
-        extends ReactiveAdapterOperations<ShoppingCart, ShoppingCartEntity, String, ShoppingCartEntityRepository>
+        extends ReactiveAdapterOperations<ShoppingCart, ShoppingCartEntity, Integer, ShoppingCartEntityRepository>
         implements ShoppingCartRepository {
 
-    public ShoppingCartEntityRepositoryAdapter(ShoppingCartEntityRepository repository, ObjectMapper mapper) {
-        super(repository, mapper, entity -> mapper.map(entity, ShoppingCart.class));
+    private final ObjectMapper jacksonMapper = new ObjectMapper();
+    private final TransactionalOperator transactionalOperator;
+
+    public ShoppingCartEntityRepositoryAdapter(
+            ShoppingCartEntityRepository repository,
+            org.reactivecommons.utils.ObjectMapper mapper,
+            TransactionalOperator transactionalOperator
+    ) {
+        super(repository, mapper, entity -> {
+            try {
+                Map<String, CartItem> items = new HashMap<>();
+                if (entity.getItems() != null && !entity.getItems().isEmpty()) {
+                    items = new ObjectMapper().readValue(entity.getItems(), new TypeReference<Map<String, CartItem>>() {});
+                }
+                return ShoppingCart.builder()
+                        .clientId(entity.getClientId())
+                        .items(items)
+                        .build();
+            } catch (Exception e) {
+                throw new RuntimeException("Error deserializando items del carrito", e);
+            }
+        });
+        this.transactionalOperator = transactionalOperator;
     }
 
-    /**
-     * Finds a shopping cart by its client ID.
-     * @param clientId The ID of the client.
-     * @return A Mono emitting the ShoppingCart, or empty if not found.
-     */
     @Override
-    public Mono<ShoppingCart> findByClientId(String clientId) {
+    protected ShoppingCartEntity toData(ShoppingCart cart) {
+        try {
+            String itemsJson = jacksonMapper.writeValueAsString(cart.getItems());
+            return ShoppingCartEntity.builder()
+                    .clientId(cart.getClientId())
+                    .items(itemsJson)
+                    .build();
+        } catch (Exception e) {
+            throw new RuntimeException("Error serializando items del carrito", e);
+        }
+    }
+
+    @Override
+    public Mono<ShoppingCart> findByClientId(Integer clientId) {
         log.info("Finding cart for client ID: {}", clientId);
-        // The repository's findById method is used here, as clientId is the entity's ID.
         return this.repository.findById(clientId)
                 .map(this::toEntity)
                 .doOnSuccess(cart -> {
@@ -36,31 +70,19 @@ public class ShoppingCartEntityRepositoryAdapter
                 });
     }
 
-    /**
-     * Saves or updates a shopping cart.
-     * It first checks if the cart exists to set the 'isNew' flag for the Persistable entity,
-     * ensuring an INSERT is performed for new carts and an UPDATE for existing ones.
-     * @param cart The shopping cart domain model to save.
-     * @return A Mono emitting the saved shopping cart.
-     */
     @Override
     public Mono<ShoppingCart> save(ShoppingCart cart) {
         log.info("Attempting to save cart for client ID: {}", cart.getClientId());
-
-        // Map the domain model to the data entity
         ShoppingCartEntity cartEntity = toData(cart);
-
-        // Check if the entity already exists to set the 'isNew' flag
-        return this.repository.existsById(cartEntity.getId())
+        return this.repository.existsById(cartEntity.getClientId())
                 .flatMap(exists -> {
                     cartEntity.setNew(!exists);
-                    log.info("Cart for client {} is new? {}", cartEntity.getId(), !exists);
+                    log.info("Cart for client {} is new? {}", cartEntity.getClientId(), !exists);
                     return this.repository.save(cartEntity);
                 })
                 .map(this::toEntity)
+                .as(transactionalOperator::transactional)
                 .doOnSuccess(savedCart -> log.info("Cart saved successfully for client ID: {}", savedCart.getClientId()))
                 .doOnError(error -> log.error("Error saving cart for client ID {}: {}", cart.getClientId(), error.getMessage()));
     }
 }
-
-

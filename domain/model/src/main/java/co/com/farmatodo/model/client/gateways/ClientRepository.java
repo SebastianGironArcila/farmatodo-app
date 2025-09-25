@@ -7,4 +7,6 @@ public interface ClientRepository {
     Mono<Client> save(Client client);
     Mono<Client> findByEmail(String email);
     Mono<Client> findByPhone(String phone);
+    Mono<Client> findById(Integer id);
+
 }

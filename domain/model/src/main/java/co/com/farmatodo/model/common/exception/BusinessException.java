@@ -9,7 +9,10 @@ public class BusinessException extends ApplicationException {
         PHONE_ALREADY_REGISTERED("Phone number is already registered"),
         TOKENIZATION_REJECTED_BY_PROBABILITY("Tokenization rejected by probability"),
         PRODUCT_NOT_FOUND("Product no found"),
-        INSUFFICIENT_STOCK("Insufficient Stock");
+        INSUFFICIENT_STOCK("Insufficient Stock"),
+        CLIENT_NOT_FOUND("CLIENT_NOT_FOUND");
+
+
 
 
 

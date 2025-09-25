@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS search_history (
 
 
 CREATE TABLE  IF NOT EXISTS shopping_cart (
-    client_id VARCHAR(255) PRIMARY KEY,
+    client_id INT PRIMARY KEY,
     items TEXT NOT NULL,
     CONSTRAINT fk_client
         FOREIGN KEY(client_id)

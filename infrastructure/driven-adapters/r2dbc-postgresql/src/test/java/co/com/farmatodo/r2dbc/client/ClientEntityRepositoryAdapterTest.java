@@ -130,4 +130,36 @@ class ClientEntityRepositoryAdapterTest {
                         ex.getMessage().equals("DB error"))
                 .verify();
     }
+    @Test
+    void shouldFindClientByIdSuccessfully() {
+        when(repository.findById(1)).thenReturn(Mono.just(entity));
+        when(mapper.map(entity, Client.class)).thenReturn(model);
+
+        StepVerifier.create(adapter.findById(1))
+                .expectNextMatches(cli -> cli.getId().equals(1)
+                        && cli.getName().equals("John Doe")
+                        && cli.getEmail().equals("john@test.com")
+                        && cli.getPhone().equals("1234567890")
+                        && cli.getAddress().equals("Street 123"))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldReturnEmptyWhenClientNotFoundById() {
+        when(repository.findById(2)).thenReturn(Mono.empty());
+
+        StepVerifier.create(adapter.findById(2))
+                .verifyComplete();
+    }
+
+    @Test
+    void shouldHandleErrorWhenFindByIdFails() {
+        when(repository.findById(1))
+                .thenReturn(Mono.error(new RuntimeException("DB error")));
+
+        StepVerifier.create(adapter.findById(1))
+                .expectErrorMatches(ex -> ex instanceof RuntimeException &&
+                        ex.getMessage().equals("DB error"))
+                .verify();
+    }
 }

@@ -3,6 +3,8 @@ package co.com.farmatodo.usecase.cart;
 import co.com.farmatodo.model.cart.CartItem;
 import co.com.farmatodo.model.cart.ShoppingCart;
 import co.com.farmatodo.model.cart.gateways.ShoppingCartRepository;
+import co.com.farmatodo.model.client.Client;
+import co.com.farmatodo.model.client.gateways.ClientRepository;
 import co.com.farmatodo.model.common.exception.BusinessException;
 import co.com.farmatodo.model.product.Product;
 import co.com.farmatodo.model.product.gateways.ProductRepository;
@@ -22,20 +24,32 @@ class AddProductToCartUseCaseTest {
 
     private ShoppingCartRepository shoppingCartRepository;
     private ProductRepository productRepository;
+    private ClientRepository clientRepository;
+
     private AddProductToCartUseCase useCase;
+
+    private final Client client = Client.builder()
+            .id(1)
+            .name("Test")
+            .email("test@test.com")
+            .phone("123")
+            .address("address")
+            .build();
 
     @BeforeEach
     void setUp() {
         shoppingCartRepository = mock(ShoppingCartRepository.class);
         productRepository = mock(ProductRepository.class);
-        useCase = new AddProductToCartUseCase(shoppingCartRepository, productRepository);
+        clientRepository = mock(ClientRepository.class);
+        useCase = new AddProductToCartUseCase(shoppingCartRepository, productRepository, clientRepository);
     }
 
     @Test
     void mustFailWhenProductNotFound() {
-        String clientId = "c1";
+        Integer clientId = 1;
         String productId = "p1";
 
+        when(clientRepository.findById(clientId)).thenReturn(Mono.just(client));
         when(productRepository.findById(productId)).thenReturn(Mono.empty());
         when(shoppingCartRepository.findByClientId(clientId)).thenReturn(Mono.empty());
 
@@ -50,8 +64,10 @@ class AddProductToCartUseCaseTest {
 
     @Test
     void mustCreateNewCartWhenNoneExists() {
-        String clientId = "c1";
+        Integer clientId = 1;
         String productId = "p1";
+
+        when(clientRepository.findById(clientId)).thenReturn(Mono.just(client));
 
         Product product = Product.builder()
                 .id(productId)
@@ -79,8 +95,10 @@ class AddProductToCartUseCaseTest {
 
     @Test
     void mustAddToExistingItemInCart() {
-        String clientId = "c1";
+        Integer clientId = 1;
         String productId = "p1";
+
+        when(clientRepository.findById(clientId)).thenReturn(Mono.just(client));
 
         Product product = Product.builder()
                 .id(productId)
@@ -119,8 +137,10 @@ class AddProductToCartUseCaseTest {
 
     @Test
     void mustFailWhenInsufficientStock() {
-        String clientId = "c1";
+        Integer clientId = 1;
         String productId = "p1";
+
+        when(clientRepository.findById(clientId)).thenReturn(Mono.just(client));
 
         Product product = Product.builder()
                 .id(productId)
@@ -139,4 +159,6 @@ class AddProductToCartUseCaseTest {
 
         verify(shoppingCartRepository, never()).save(any());
     }
+
+
 }
