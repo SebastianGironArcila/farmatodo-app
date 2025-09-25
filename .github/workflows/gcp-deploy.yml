@@ -46,13 +46,15 @@ jobs:
           workload_identity_provider: 'projects/578301564702/locations/global/workloadIdentityPools/farmatodo-actions-pool/providers/github-provider'
           service_account: 'github-actions-builder@farmatodo-cicd-project.iam.gserviceaccount.com'
 
-      # 6. Configurar gcloud CLI (aquí se leen las credenciales creadas arriba)
+      # 6. Configurar gcloud CLI
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # 7. Verificar identidad (debe mostrar el service account activo)
-      - name: Verify gcloud identity
-        run: gcloud auth list
+      # 7. Verificar configuración de GCP (paso añadido)
+      - name: Verify GCP project and configuration
+        run: |
+          gcloud config get-value project
+          gcloud auth list
 
       # 8. Configurar Docker para autenticarse con Artifact Registry
       - name: Configure Docker
@@ -78,3 +80,4 @@ jobs:
             --allow-unauthenticated \
             --port 8080 \
             --quiet
+
