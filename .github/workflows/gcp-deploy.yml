@@ -73,6 +73,9 @@ jobs:
       contents: read
       id-token: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Google Auth (WIF)
         uses: google-github-actions/auth@v2
         with:
@@ -82,7 +85,11 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Deploy (dev, H2, 1 instancia, concurrency 1)
+      - name: Verify env file exists (dev)
+        run: |
+          test -f deployment/env.dev.yaml && echo "Found deployment/env.dev.yaml" || (echo "Missing deployment/env.dev.yaml" && exit 1)
+
+      - name: Deploy (dev, H2, 1 instance, concurrency 1)
         run: |
           IMAGE="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
           gcloud run deploy ${{ env.SERVICE_NAME_DEV }} \
@@ -123,6 +130,9 @@ jobs:
       contents: read
       id-token: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Google Auth (WIF)
         uses: google-github-actions/auth@v2
         with:
@@ -132,7 +142,11 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Deploy (prod, H2, 1 instancia, concurrency 1)
+      - name: Verify env file exists (prod)
+        run: |
+          test -f deployment/env.prod.yaml && echo "Found deployment/env.prod.yaml" || (echo "Missing deployment/env.prod.yaml" && exit 1)
+
+      - name: Deploy (prod, H2, 1 instance, concurrency 1)
         run: |
           IMAGE="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
           gcloud run deploy ${{ env.SERVICE_NAME_PROD }} \
