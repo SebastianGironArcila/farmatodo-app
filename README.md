@@ -107,6 +107,66 @@ Usa deployment/env.dev.yaml o deployment/env.prod.yaml para configurar SECURITY_
   https://github.com/SebastianGironArcila/farmatodo-app/actions
 - Logs de la app en Cloud Run (Log Explorer de GCP).
 
+# Colecciones de Postman
+
+## Ubicación de archivos en el repositorio
+
+**Colección:**
+- `docs/postman/Farmatodo API.postman_collection.json`
+
+**Ambientes:**
+- `docs/postman/env/Farmatodo Local.postman_environment.json`
+- `docs/postman/env/Farmatodo Dev.postman_environment.json`
+- `docs/postman/env/Farmatodo Prod.postman_environment.json`
+
+## Cómo importar en Postman
+
+1. **Importar la colección**  
+   Postman > Import > Files > selecciona  
+   `docs/postman/Farmatodo API.postman_collection.json`
+
+2. **Importar uno o más ambientes**  
+   Postman > Import > Files > selecciona uno o varios de:
+    - `docs/postman/env/Farmatodo Local.postman_environment.json`
+    - `docs/postman/env/Farmatodo Dev.postman_environment.json`
+    - `docs/postman/env/Farmatodo Prod.postman_environment.json`
+
+3. **Seleccionar el ambiente**  
+   En la esquina superior derecha de Postman, abre el selector de ambientes y elige:
+    - Farmatodo Local
+    - Farmatodo Dev
+    - Farmatodo Prod
+
+## Variables por ambiente
+
+- **baseUrl**
+    - Local: `http://localhost:8080`
+    - Dev: `https://java-api-service-dev-578301564702.us-central1.run.app`
+    - Prod: `https://java-api-service-578301564702.us-central1.run.app`
+- **apiKey:** `farmatodo-secret-key-2024`
+- **clientId:** `1`
+- **productName:** vacío por defecto
+
+## Autenticación
+
+- La colección ya está configurada con **API Key** en el header `X-API-KEY` usando la variable `{{apiKey}}` del ambiente.
+- Verifica que cada request herede la auth de la colección:
+    - **Collection > Authorization > Type:** API Key
+    - En cada request: pestaña **Settings > “Inherit auth from parent”**
+
+## Prueba rápida
+
+1. Selecciona el ambiente deseado.
+2. Ejecuta **GET Ping**:  
+   `{{baseUrl}}/api/v1/ping`
+3. Para rutas protegidas, Postman enviará `X-API-KEY` automáticamente desde la colección.
+
+## Notas
+
+- Si cambias el valor real del **API Key** en el backend, actualiza la variable `apiKey` en el ambiente correspondiente.
+- Puedes editar `clientId` y `productName` en **Variables del ambiente** para tus pruebas.
+
+
 ## Notas finales
 
 - Para que Swagger permita setear el X-API-KEY, el proyecto define un Security Scheme ApiKeyAuth. Usa el botón Authorize. La que viene por defecto en la configuracion es: farmatodo-secret-key-2024
