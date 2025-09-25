@@ -52,4 +52,13 @@ public class ClientEntityRepositoryAdapter extends ReactiveAdapterOperations<
                 .doOnNext(cli -> log.info("Client found: {}", cli.getName()))
                 .doOnError(error -> log.error("Error finding client by phone: {}", error.getMessage()));
     }
+
+    @Override
+    public Mono<Client> findById(Integer id) {
+        log.info("Finding client by id: {}", id);
+        return repository.findById(id)
+                .map(this::toEntity)
+                .doOnNext(cli -> log.info("Client found: {}", cli.getName()))
+                .doOnError(error -> log.error("Error finding client by id: {}", error.getMessage()));
+    }
 }
