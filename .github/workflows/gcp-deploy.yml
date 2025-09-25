@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build and Push Image
+    name: Build, Test, Coverage and Push Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,34 +40,18 @@ jobs:
       - name: Run tests and coverage
         run: ./gradlew clean build jacocoTestReport jacocoTestCoverageVerification
 
-      - name: Upload coverage report (JaCoCo HTML and XML)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: jacoco-report
-          path: |
-            **/build/reports/jacocoHtml/**
-            **/build/reports/jacoco.xml
-          retention-days: 7
-          compression-level: 6
+      - name: Generate merged coverage report
+        run: ./gradlew jacocoMergedReport
 
-      - name: Upload unit test reports (HTML)
+      - name: Upload merged coverage report (JaCoCo)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: unit-tests-report
-          path: "**/build/reports/tests/test/**"
+          name: jacoco-merged-report
+          path: build/reports/jacocoMergedReport/html/**
           retention-days: 7
           compression-level: 6
-
-      - name: Upload PIT mutation reports (opcional)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pitest-report
-          path: "**/build/reports/pitest/**"
-          retention-days: 7
-          compression-level: 6
+          if-no-files-found: ignore
 
       - name: Google Auth (WIF)
         uses: google-github-actions/auth@v2
@@ -205,6 +189,5 @@ jobs:
             echo "Not ready yet... retry $i/24"; sleep 5
           done
           echo "Prod not healthy"; echo "$RESP"; exit 1
-
 
 

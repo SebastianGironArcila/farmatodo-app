@@ -1,6 +1,8 @@
 // build.gradle (raiz)
 
 apply plugin: 'info.solidsoft.pitest.aggregator'
+// Recomendado para usar JacocoReport en el root y configurar la extension
+apply plugin: 'jacoco'
 
 allprojects {
     repositories {
@@ -137,8 +139,9 @@ jacoco {
     reportsDirectory.set(layout.buildDirectory.dir("reports"))
 }
 
-// Reporte de cobertura combinado de todos los modulos
+// Reporte de cobertura combinado de todos los modulos (corregido)
 tasks.register('jacocoMergedReport', JacocoReport) {
+    // Ejecuta tests y reportes de todos los subproyectos antes de mergear
     dependsOn subprojects.test, subprojects.jacocoTestReport, pitestReportAggregate
 
     additionalSourceDirs.setFrom files(subprojects.sourceSets.main.allSource.srcDirs)
@@ -154,7 +157,13 @@ tasks.register('jacocoMergedReport', JacocoReport) {
         ])
     }
 
-    executionData.setFrom project.fileTree(dir: '.', include: '**/build/jacoco/test.exec', '**/build/jacoco/*.ec')
+    // Incluye multiples patrones correctamente
+    executionData.setFrom fileTree('.') {
+        include '**/build/jacoco/test.exec'
+        include '**/build/jacoco/*.exec'
+        include '**/build/jacoco/*.ec'
+        include '**/build/jacoco/test.exec.gz'
+    }
 
     reports {
         xml.required.set(true)
@@ -193,6 +202,5 @@ pitestReportAggregate {
 tasks.named('wrapper') {
     gradleVersion = '8.14.3'
 }
-
 
 
