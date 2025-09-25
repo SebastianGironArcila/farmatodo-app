@@ -1,31 +1,26 @@
 server:
   port: 8080
 
-
 spring:
   application:
     name: "PruebaTecnicaJava"
   devtools:
     add-properties: false
 
-
   r2dbc:
     url: r2dbc:h2:mem:///testdb;DB_CLOSE_DELAY=-1
     username: sa
-    password: ''
-
+    password: ""
 
   sql:
     init:
       mode: always
       schema-locations: classpath:db/schema.sql
 
-
   h2:
     console:
       enabled: false
       path: /h2
-
 
 management:
   endpoints:
@@ -37,28 +32,22 @@ management:
       probes:
         enabled: true
 
-
 cors:
-  allowed-origins: "http://localhost:4200,http://localhost:8080"
-
+  allowed-origins: ${ALLOWED_ORIGINS:http://localhost:4200,http://localhost:8080}
 
 tokenization:
-  rejection-probability: 0.2
-
+  rejection-probability: ${REJECTION_PROBABILITY:0.2}
 
 security:
-  api-key: "farmatodo-secret-key-2024"
-
+  api-key: ${SECURITY_API_KEY:farmatodo-secret-key-2024}
 
 products:
   search:
-    min-stock: 5
-
+    min-stock: ${PRODUCTS_MIN_STOCK:5}
 
 logging:
   level:
     io.r2dbc.h2: ERROR
-
 
 ---
 spring:
@@ -68,7 +57,6 @@ spring:
   h2:
     console:
       enabled: true
-
 
 ---
 spring:
@@ -82,7 +70,6 @@ logging:
   level:
     root: INFO
 
-
 ---
 spring:
   config:
@@ -94,3 +81,6 @@ spring:
 logging:
   level:
     root: INFO
+
+
+

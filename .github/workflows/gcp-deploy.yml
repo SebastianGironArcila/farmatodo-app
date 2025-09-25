@@ -1,10 +1,8 @@
 name: CI CD Cloud Run H2
 
-
 on:
   push:
     branches: [ "develop", "master" ]
-
 
 env:
   PROJECT_ID: farmatodo-cicd-project
@@ -14,11 +12,9 @@ env:
   SERVICE_NAME_DEV: java-api-service-dev
   SERVICE_NAME_PROD: java-api-service
 
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 
 jobs:
   build:
@@ -31,7 +27,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -39,14 +34,11 @@ jobs:
           distribution: "temurin"
           cache: gradle
 
-
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-
       - name: Build and test with Gradle
         run: ./gradlew clean build
-
 
       - name: Google Auth (WIF)
         uses: google-github-actions/auth@v2
@@ -54,20 +46,16 @@ jobs:
           workload_identity_provider: 'projects/578301564702/locations/global/workloadIdentityPools/farmatodo-actions-pool/providers/github-provider'
           service_account: 'github-actions-builder@farmatodo-cicd-project.iam.gserviceaccount.com'
 
-
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
-
 
       - name: Verify gcloud identity
         run: |
           gcloud config get-value project
           gcloud auth list
 
-
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev --quiet
-
 
       - name: Build and push image
         run: |
@@ -75,7 +63,6 @@ jobs:
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
           docker build -t "$IMAGE" --file deployment/Dockerfile .
           docker push "$IMAGE"
-
 
   deploy-dev:
     name: Deploy to Cloud Run (dev)
@@ -92,12 +79,10 @@ jobs:
           workload_identity_provider: 'projects/578301564702/locations/global/workloadIdentityPools/farmatodo-actions-pool/providers/github-provider'
           service_account: 'github-actions-builder@farmatodo-cicd-project.iam.gserviceaccount.com'
 
-
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-
-      - name: Deploy (dev, H2, 1 instance, concurrency 1)
+      - name: Deploy (dev, H2, 1 instancia, concurrency 1)
         run: |
           IMAGE="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
           gcloud run deploy ${{ env.SERVICE_NAME_DEV }} \
@@ -112,9 +97,8 @@ jobs:
             --timeout 300 \
             --min-instances 0 \
             --max-instances 1 \
-            --set-env-vars "SPRING_PROFILES_ACTIVE=dev,ALLOWED_ORIGINS=http://localhost:4200,http://localhost:8080" \
+            --env-vars-file deployment/env.dev.yaml \
             --quiet
-
 
       - name: Smoke test (dev)
         shell: bash
@@ -128,7 +112,6 @@ jobs:
             echo "Not ready yet... retry $i/24"; sleep 5
           done
           echo "Dev not healthy"; echo "$RESP"; exit 1
-
 
   deploy-prod:
     name: Deploy to Cloud Run (prod)
@@ -146,12 +129,10 @@ jobs:
           workload_identity_provider: 'projects/578301564702/locations/global/workloadIdentityPools/farmatodo-actions-pool/providers/github-provider'
           service_account: 'github-actions-builder@farmatodo-cicd-project.iam.gserviceaccount.com'
 
-
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-
-      - name: Deploy (prod, H2, 1 instance, concurrency 1)
+      - name: Deploy (prod, H2, 1 instancia, concurrency 1)
         run: |
           IMAGE="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
           gcloud run deploy ${{ env.SERVICE_NAME_PROD }} \
@@ -166,9 +147,8 @@ jobs:
             --timeout 300 \
             --min-instances 0 \
             --max-instances 1 \
-            --set-env-vars "SPRING_PROFILES_ACTIVE=prod,ALLOWED_ORIGINS=http://localhost:4200,http://localhost:8080" \
+            --env-vars-file deployment/env.prod.yaml \
             --quiet
-
 
       - name: Smoke test (prod)
         shell: bash
@@ -182,8 +162,5 @@ jobs:
             echo "Not ready yet... retry $i/24"; sleep 5
           done
           echo "Prod not healthy"; echo "$RESP"; exit 1
-
-
-
 
 
