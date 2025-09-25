@@ -49,6 +49,10 @@ jobs:
           workload_identity_provider: 'projects/578301564702/locations/global/workloadIdentityPools/farmatodo-actions-pool/providers/github-provider'
           service_account: 'github-actions-builder@farmatodo-cicd-project.iam.gserviceaccount.com'
 
+      - name: Verify gcloud identity
+        run: gcloud auth list
+
+
       # 6. Configurar gcloud CLI
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
