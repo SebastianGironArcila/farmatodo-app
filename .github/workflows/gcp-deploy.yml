@@ -1,10 +1,10 @@
 name: CI CD Cloud Run H2
 
-
 on:
   push:
     branches: [ "develop", "master" ]
-
+  pull_request:
+    branches: [ "master" ]
 
 env:
   PROJECT_ID: farmatodo-cicd-project
@@ -14,15 +14,13 @@ env:
   SERVICE_NAME_DEV: java-api-service-dev
   SERVICE_NAME_PROD: java-api-service
 
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-
 jobs:
   build:
-    name: Build and Push Image
+    name: Build, Test, Coverage and (on push) Push Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,7 +29,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -39,63 +36,112 @@ jobs:
           distribution: "temurin"
           cache: gradle
 
-
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Run tests and coverage
+        run: ./gradlew clean build jacocoTestReport jacocoTestCoverageVerification
 
-      - name: Build and test with Gradle
-        run: ./gradlew clean build
+      - name: Generate merged coverage report
+        run: ./gradlew jacocoMergedReport
 
+      - name: Upload merged coverage report (JaCoCo)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-merged-report
+          path: build/reports/jacocoMergedReport/html/**
+          retention-days: 7
+          compression-level: 6
+          if-no-files-found: ignore
 
+      - name: Upload coverage report by module (HTML and XML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: |
+            **/build/reports/jacocoHtml/**
+            **/build/reports/jacoco.xml
+          retention-days: 7
+          compression-level: 6
+          if-no-files-found: ignore
+
+      - name: Upload unit test reports (HTML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-tests-report
+          path: "**/build/reports/tests/test/**"
+          retention-days: 7
+          compression-level: 6
+          if-no-files-found: ignore
+
+      - name: Upload PIT mutation reports (optional)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pitest-report
+          path: "**/build/reports/pitest/**"
+          retention-days: 7
+          compression-level: 6
+          if-no-files-found: ignore
+
+      # Los siguientes pasos solo se ejecutan en push (no en pull_request),
+      # evitando el error de WIF en PR.
       - name: Google Auth (WIF)
+        if: github.event_name == 'push'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: 'projects/578301564702/locations/global/workloadIdentityPools/farmatodo-actions-pool/providers/github-provider'
           service_account: 'github-actions-builder@farmatodo-cicd-project.iam.gserviceaccount.com'
 
-
       - name: Set up Cloud SDK
+        if: github.event_name == 'push'
         uses: google-github-actions/setup-gcloud@v2
 
-
       - name: Verify gcloud identity
+        if: github.event_name == 'push'
         run: |
           gcloud config get-value project
           gcloud auth list
 
-
       - name: Configure Docker for Artifact Registry
+        if: github.event_name == 'push'
         run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev --quiet
 
-
       - name: Build and push image
+        if: github.event_name == 'push'
         run: |
           IMAGE="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
           docker build -t "$IMAGE" --file deployment/Dockerfile .
           docker push "$IMAGE"
 
-
   deploy-dev:
     name: Deploy to Cloud Run (dev)
     needs: build
-    if: github.ref == 'refs/heads/develop'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Google Auth (WIF)
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: 'projects/578301564702/locations/global/workloadIdentityPools/farmatodo-actions-pool/providers/github-provider'
           service_account: 'github-actions-builder@farmatodo-cicd-project.iam.gserviceaccount.com'
 
-
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Verify env file exists (dev)
+        run: |
+          test -f deployment/env.dev.yaml && echo "Found deployment/env.dev.yaml" || (echo "Missing deployment/env.dev.yaml" && exit 1)
 
       - name: Deploy (dev, H2, 1 instance, concurrency 1)
         run: |
@@ -112,9 +158,8 @@ jobs:
             --timeout 300 \
             --min-instances 0 \
             --max-instances 1 \
-            --set-env-vars "SPRING_PROFILES_ACTIVE=dev,ALLOWED_ORIGINS=http://localhost:4200,http://localhost:8080" \
+            --env-vars-file deployment/env.dev.yaml \
             --quiet
-
 
       - name: Smoke test (dev)
         shell: bash
@@ -129,27 +174,31 @@ jobs:
           done
           echo "Dev not healthy"; echo "$RESP"; exit 1
 
-
   deploy-prod:
     name: Deploy to Cloud Run (prod)
     needs: build
-    if: github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     environment: production
     permissions:
       contents: read
       id-token: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Google Auth (WIF)
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: 'projects/578301564702/locations/global/workloadIdentityPools/farmatodo-actions-pool/providers/github-provider'
           service_account: 'github-actions-builder@farmatodo-cicd-project.iam.gserviceaccount.com'
 
-
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Verify env file exists (prod)
+        run: |
+          test -f deployment/env.prod.yaml && echo "Found deployment/env.prod.yaml" || (echo "Missing deployment/env.prod.yaml" && exit 1)
 
       - name: Deploy (prod, H2, 1 instance, concurrency 1)
         run: |
@@ -166,9 +215,8 @@ jobs:
             --timeout 300 \
             --min-instances 0 \
             --max-instances 1 \
-            --set-env-vars "SPRING_PROFILES_ACTIVE=prod,ALLOWED_ORIGINS=http://localhost:4200,http://localhost:8080" \
+            --env-vars-file deployment/env.prod.yaml \
             --quiet
-
 
       - name: Smoke test (prod)
         shell: bash
@@ -182,8 +230,6 @@ jobs:
             echo "Not ready yet... retry $i/24"; sleep 5
           done
           echo "Prod not healthy"; echo "$RESP"; exit 1
-
-
 
 
 

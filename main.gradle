@@ -1,4 +1,8 @@
+// build.gradle (raiz)
+
 apply plugin: 'info.solidsoft.pitest.aggregator'
+// Recomendado para usar JacocoReport en el root y configurar la extension
+apply plugin: 'jacoco'
 
 allprojects {
     repositories {
@@ -14,6 +18,7 @@ subprojects {
     apply plugin: 'io.spring.dependency-management'
     apply plugin: 'info.solidsoft.pitest'
 
+    // Si usas la tarea validateStructure del plugin de arquitectura
     compileJava.dependsOn validateStructure
 
     java {
@@ -21,8 +26,6 @@ subprojects {
             languageVersion = JavaLanguageVersion.of(21)
         }
     }
-
-    //build.dependsOn 'pitest'
 
     test {
         useJUnitPlatform()
@@ -33,27 +36,85 @@ subprojects {
         implementation 'io.projectreactor.addons:reactor-extra'
 
         testImplementation 'io.projectreactor.tools:blockhound-junit-platform:1.0.13.RELEASE'
-
         testImplementation 'io.projectreactor:reactor-test'
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
         testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
         compileOnly "org.projectlombok:lombok:${lombokVersion}"
-        annotationProcessor  "org.projectlombok:lombok:${lombokVersion}"
-        testCompileOnly  "org.projectlombok:lombok:${lombokVersion}"
-        testAnnotationProcessor  "org.projectlombok:lombok:${lombokVersion}"
+        annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+        testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
+        testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
         implementation platform("org.springframework.boot:spring-boot-dependencies:${springBootVersion}")
     }
 
+    // Flags para JDK 13+ en tests
     tasks.withType(Test).configureEach {
         if (JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_13)) {
-            jvmArgs += [
-                    "-XX:+AllowRedefinitionToAddDeleteMethods"
-            ]
+            jvmArgs += ["-XX:+AllowRedefinitionToAddDeleteMethods"]
         }
     }
 
+    // Reporte de cobertura por modulo
+    jacocoTestReport {
+        dependsOn test, 'pitest'
+        reports {
+            xml.required.set(true)
+            xml.outputLocation.set(layout.buildDirectory.file("reports/jacoco.xml"))
+            csv.required.set(false)
+            html.outputLocation.set(layout.buildDirectory.dir("reports/jacocoHtml"))
+        }
+    }
+
+    // Verificación de cobertura: falla si baja del umbral
+    tasks.named('jacocoTestCoverageVerification') {
+        dependsOn test
+
+        // Excluir clases que no aportan a la cobertura
+        classDirectories.setFrom(
+                files(sourceSets.main.output).asFileTree.matching {
+                    exclude(
+                            'co/com/farmatodo/MainApplication*',
+                            '**/api/config/**',
+                            '**/api/mapper/**',
+                            '**/api/security/**',
+                            '**/api/dto/**'
+                    )
+                }
+        )
+        sourceDirectories.setFrom files(sourceSets.main.allSource.srcDirs)
+
+        // Soporta .exec y .ec
+        executionData.setFrom fileTree(buildDir).include('jacoco/*.exec', 'jacoco/*.ec')
+
+        violationRules {
+            rule {
+                element = 'BUNDLE'
+                // Line coverage minimo 80%
+                limit {
+                    counter = 'LINE'
+                    value = 'COVEREDRATIO'
+                    minimum = 0.80
+                }
+                // Branch coverage minimo 70% (opcional)
+                limit {
+                    counter = 'BRANCH'
+                    value = 'COVEREDRATIO'
+                    minimum = 0.70
+                }
+            }
+        }
+    }
+
+    // Ejecuta reporte despues de los tests
     test.finalizedBy(project.tasks.jacocoTestReport)
 
+    // Hace que el build falle si no se cumple el umbral
+    tasks.named('check') {
+        dependsOn 'jacocoTestCoverageVerification'
+    }
+
+    // Config PIT
     pitest {
         targetClasses = ['co.com.farmatodo.*']
         excludedClasses = []
@@ -71,17 +132,6 @@ subprojects {
         failWhenNoMutations = false
         jvmArgs = ["-XX:+AllowRedefinitionToAddDeleteMethods"]
     }
-
-    jacocoTestReport {
-        dependsOn test, 'pitest'
-        reports {
-            xml.setRequired true
-            xml.setOutputLocation layout.buildDirectory.file("reports/jacoco.xml")
-            csv.setRequired false
-            html.setOutputLocation layout.buildDirectory.dir("reports/jacocoHtml")
-        }
-    }
-
 }
 
 jacoco {
@@ -89,10 +139,14 @@ jacoco {
     reportsDirectory.set(layout.buildDirectory.dir("reports"))
 }
 
+// Reporte de cobertura combinado de todos los modulos (corregido)
 tasks.register('jacocoMergedReport', JacocoReport) {
-    dependsOn = [test, subprojects.jacocoTestReport, pitestReportAggregate]
+    // Ejecuta tests y reportes de todos los subproyectos antes de mergear
+    dependsOn subprojects.test, subprojects.jacocoTestReport, pitestReportAggregate
+
     additionalSourceDirs.setFrom files(subprojects.sourceSets.main.allSource.srcDirs)
     sourceDirectories.setFrom files(subprojects.sourceSets.main.allSource.srcDirs)
+
     classDirectories.setFrom files(subprojects.sourceSets.main.output).collect {
         fileTree(dir: it, exclude: [
                 'co/com/farmatodo/MainApplication.java',
@@ -100,26 +154,34 @@ tasks.register('jacocoMergedReport', JacocoReport) {
                 '**/api/mapper/**/*',
                 '**/api/security/**/*',
                 '**/api/dto/**/*'
-
         ])
     }
-    executionData.setFrom project.fileTree(dir: '.', include: '**/build/jacoco/test.exec')
+
+    // Incluye multiples patrones correctamente
+    executionData.setFrom fileTree('.') {
+        include '**/build/jacoco/test.exec'
+        include '**/build/jacoco/*.exec'
+        include '**/build/jacoco/*.ec'
+        include '**/build/jacoco/test.exec.gz'
+    }
+
     reports {
-        xml.setRequired true
-        csv.setRequired false
-        html.setRequired true
+        xml.required.set(true)
+        csv.required.set(false)
+        html.required.set(true)
     }
 }
 
+// Flags para MapStruct (si aplica)
 tasks.withType(JavaCompile).configureEach {
-    options.compilerArgs = [
-            '-Amapstruct.suppressGeneratorTimestamp=true'
-    ]
+    options.compilerArgs = ['-Amapstruct.suppressGeneratorTimestamp=true']
 }
 
+// Consolidar reportes de PIT en un mutations.xml en el root build/reports/pitest
 pitestReportAggregate {
     doLast {
         def reportDir = layout.buildDirectory.dir("reports/pitest").get().asFile
+        reportDir.mkdirs()
         def consolidatedReport = new File(reportDir, 'mutations.xml')
         consolidatedReport.withWriter { writer ->
             writer.write("<mutations>\n")
@@ -140,3 +202,5 @@ pitestReportAggregate {
 tasks.named('wrapper') {
     gradleVersion = '8.14.3'
 }
+
+
