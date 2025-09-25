@@ -1,3 +1,4 @@
+# Este es tu archivo cloudbuild.yml corregido
 steps:
   # --- 1. Dar permisos de ejecución al wrapper de Gradle ---
   - name: 'gcr.io/cloud-builders/git'
@@ -6,17 +7,12 @@ steps:
     args: ['+x', './gradlew']
 
 
-
-
   # --- 2. Ejecutar Pruebas Unitarias usando la imagen de Cloud SDK ---
-  # Esta imagen está garantizada que existe y contiene un JDK.
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     id: 'Run tests'
     entrypoint: './gradlew'
     args: ['test']
     waitFor: ['Grant execute permission']
-
-
 
 
   # --- 3. Empaquetar la aplicación usando la imagen de Cloud SDK ---
@@ -25,8 +21,6 @@ steps:
     entrypoint: './gradlew'
     args: ['bootJar', '-x', 'test']
     waitFor: ['Run tests']
-
-
 
 
   # --- 4. Construir la imagen de Docker ---
@@ -44,15 +38,11 @@ steps:
     waitFor: ['Package application']
 
 
-
-
   # --- 5. Subir la imagen a Artifact Registry ---
   - name: 'gcr.io/cloud-builders/docker'
     id: 'Push image'
     args: ['push', 'us-central1-docker.pkg.dev/${PROJECT_ID}/prueba-tecnica-repo/java-app:latest']
     waitFor: ['Build image']
-
-
 
 
   # --- 6. Desplegar la imagen en Cloud Run ---
@@ -73,9 +63,9 @@ steps:
     waitFor: ['Push image']
 
 
-
-
 # Guardar la imagen construida en Artifact Registry
 images:
   - 'us-central1-docker.pkg.dev/${PROJECT_ID}/prueba-tecnica-repo/java-app:latest'
+
+
 
