@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [ "master" ]
 
-
 env:
   PROJECT_ID: farmatodo-cicd-project
   GAR_LOCATION: us-central1
@@ -21,7 +20,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build, Test, Coverage and Push Image
+    name: Build, Test, Coverage and (on push) Push Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -56,24 +55,63 @@ jobs:
           compression-level: 6
           if-no-files-found: ignore
 
+      - name: Upload coverage report by module (HTML and XML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: |
+            **/build/reports/jacocoHtml/**
+            **/build/reports/jacoco.xml
+          retention-days: 7
+          compression-level: 6
+          if-no-files-found: ignore
+
+      - name: Upload unit test reports (HTML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-tests-report
+          path: "**/build/reports/tests/test/**"
+          retention-days: 7
+          compression-level: 6
+          if-no-files-found: ignore
+
+      - name: Upload PIT mutation reports (optional)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pitest-report
+          path: "**/build/reports/pitest/**"
+          retention-days: 7
+          compression-level: 6
+          if-no-files-found: ignore
+
+      # Los siguientes pasos solo se ejecutan en push (no en pull_request),
+      # evitando el error de WIF en PR.
       - name: Google Auth (WIF)
+        if: github.event_name == 'push'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: 'projects/578301564702/locations/global/workloadIdentityPools/farmatodo-actions-pool/providers/github-provider'
           service_account: 'github-actions-builder@farmatodo-cicd-project.iam.gserviceaccount.com'
 
       - name: Set up Cloud SDK
+        if: github.event_name == 'push'
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Verify gcloud identity
+        if: github.event_name == 'push'
         run: |
           gcloud config get-value project
           gcloud auth list
 
       - name: Configure Docker for Artifact Registry
+        if: github.event_name == 'push'
         run: gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev --quiet
 
       - name: Build and push image
+        if: github.event_name == 'push'
         run: |
           IMAGE="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
           echo "IMAGE=$IMAGE" >> $GITHUB_ENV
@@ -83,7 +121,7 @@ jobs:
   deploy-dev:
     name: Deploy to Cloud Run (dev)
     needs: build
-    if: github.ref == 'refs/heads/develop'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -139,7 +177,7 @@ jobs:
   deploy-prod:
     name: Deploy to Cloud Run (prod)
     needs: build
-    if: github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -192,5 +230,6 @@ jobs:
             echo "Not ready yet... retry $i/24"; sleep 5
           done
           echo "Prod not healthy"; echo "$RESP"; exit 1
+
 
 
